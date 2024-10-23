@@ -8,6 +8,7 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://auth-service:3000/auth
       - ROOM_SERVICE_URL=http://room-service:5000/room
+      - PAYMENT_SERVICE_URL=http://payment-service:6000/payment
 
   auth-service:
     build: ./auth-service
