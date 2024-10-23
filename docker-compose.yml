@@ -1,0 +1,31 @@
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./api-gateway/.env
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:3000/auth
+      - ROOM_SERVICE_URL=http://room-service:5000/room
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./auth-service/.env
+
+  room-service:
+    build: ./room-service
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./room-service/.env
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "6000:6000"
+    env_file:
+      - ./payment-service/.env
