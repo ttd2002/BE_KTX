@@ -10,7 +10,7 @@ router.post('/register', async (req, res) => {
     const response = await axios.post(`${AUTH_SERVICE_URL}/register`, req.body);
     res.status(response.status).json(response.data);
   } catch (error) {
-    res.status(error.response.status).json(error.response.data);
+    res.status(error.response?.status || 500).json(error.response?.data || { error: 'Internal Server Error' });
   }
 });
 
@@ -20,7 +20,17 @@ router.post('/login', async (req, res) => {
     const response = await axios.post(`${AUTH_SERVICE_URL}/login`, req.body);
     res.status(response.status).json(response.data);
   } catch (error) {
-    res.status(error.response.status).json(error.response.data);
+    res.status(error.response?.status || 500).json(error.response?.data || { error: 'Internal Server Error' });
+  }
+});
+
+// Gửi OTP
+router.post('/send-otp', async (req, res) => {
+  try {
+    const response = await axios.post(`${AUTH_SERVICE_URL}/send-otp`, req.body);
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json(error.response?.data || { error: 'Internal Server Error' });
   }
 });
 
@@ -30,7 +40,17 @@ router.post('/verify-otp', async (req, res) => {
     const response = await axios.post(`${AUTH_SERVICE_URL}/verify-otp`, req.body);
     res.status(response.status).json(response.data);
   } catch (error) {
-    res.status(error.response.status).json(error.response.data);
+    res.status(error.response?.status || 500).json(error.response?.data || { error: 'Internal Server Error' });
+  }
+});
+
+// Thông tin người dùng
+router.get('/info', async (req, res) => {
+  try {
+    const response = await axios.get(`${AUTH_SERVICE_URL}/info`, req.body);
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json(error.response?.data || { error: 'Internal Server Error' });
   }
 });
 

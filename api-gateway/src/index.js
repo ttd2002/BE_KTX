@@ -1,9 +1,17 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(express.json());
+
+// Cấu hình CORS
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');

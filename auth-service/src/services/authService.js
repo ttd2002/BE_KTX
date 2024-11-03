@@ -1,50 +1,82 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const firebaseAdmin = require('firebase-admin');
-const db = firebaseAdmin.firestore();
+const twilio = require('twilio');
+const Student = require('../database/models/Student');
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = new twilio(accountSid, authToken);
+
+const otpMemory = {};
 
 const register = async (studentId, name, phoneNumber, gender, password, className) => {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userRef = db.collection('users').doc(studentId);
 
-    const userDoc = await userRef.get();
-    if (userDoc.exists) throw new Error('Student ID already exists');
+    // Kiểm tra xem studentId đã tồn tại hay chưa
+    const existingUser = await Student.findOne({ studentId });
+    if (existingUser) throw new Error('Student ID already exists');
 
-    await userRef.set({
+    const newUser = new Student({
         studentId,
         name,
         phoneNumber,
         gender,
         password: hashedPassword,
-        className,
-        address: "",    
-        email: "",
-        roomName: "",
-        isLeader: false,
-        equipmentName: "",
+        className
     });
+
+    await newUser.save();
 
     return { studentId, name, phoneNumber, gender, className };
 };
 
 const login = async (studentId, password) => {
-    const userRef = db.collection('users').doc(studentId);
-    const userDoc = await userRef.get();
+    const user = await Student.findOne({ studentId });
 
-    if (!userDoc.exists) throw new Error('Invalid credentials');
+    if (!user) throw new Error('Invalid credentials');
 
-    const user = userDoc.data();
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error('Invalid credentials');
 
-    const token = jwt.sign({ studentId }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    return { token, studentId };
+    const token = jwt.sign({
+        studentId: user.studentId,
+        name: user.name,
+        phoneNumber: user.phoneNumber,
+        gender: user.gender,
+        className: user.className,
+        address: user.address,
+        email: user.email,
+        roomName: user.roomName,
+        isLeader: user.isLeader,
+        equipmentName: user.equipmentName,
+    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    return { token };
+};
+
+const sendOtp = async (phoneNumber) => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpMemory[phoneNumber] = otp;
+
+    try {
+        await client.messages.create({
+            body: `Your OTP code is ${otp}`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: `+${phoneNumber}`
+        });
+        return { message: "OTP sent successfully" };
+    } catch (error) {
+        throw new Error("Failed to send OTP");
+    }
 };
 
 const verifyOtp = async (otp, phoneNumber) => {
-    const verification = await firebaseAdmin.auth().verifyIdToken(otp);
-    if (verification.phone_number !== phoneNumber) throw new Error('Invalid OTP');
-    return verification;
+    if (otpMemory[phoneNumber] === otp) {
+        delete otpMemory[phoneNumber];
+        return true;
+    } else {
+        throw new Error("Invalid OTP");
+    }
 };
 
-module.exports = { register, login, verifyOtp };
+module.exports = { register, login, sendOtp, verifyOtp };

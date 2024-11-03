@@ -1,4 +1,4 @@
-const { register, login, verifyOtp } = require('../services/authService');
+const { register, login, sendOtp, verifyOtp } = require('../services/authService');
 const { getStudentInfoFromToken } = require('../services/tokenService');
 const registerController = async (req, res) => {
   const { studentId, name, phoneNumber, gender, password, className } = req.body;
@@ -19,6 +19,15 @@ const loginController = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+const sendOtpController = async (req, res) => {
+  const { phoneNumber } = req.body;
+  try {
+    const response = await sendOtp(phoneNumber);
+    res.status(200).json(response);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
 const verifyOtpController = async (req, res) => {
   const { otp, phoneNumber } = req.body;
@@ -29,6 +38,7 @@ const verifyOtpController = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
 const getStudentInfoController = (req, res) => {
   const token = req.header('Authorization').replace('Bearer ', '');
   try {
@@ -41,6 +51,7 @@ const getStudentInfoController = (req, res) => {
 module.exports = {
   registerController,
   loginController,
+  sendOtpController,
   verifyOtpController,
   getStudentInfoController
 };

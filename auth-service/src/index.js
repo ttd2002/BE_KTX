@@ -1,17 +1,18 @@
 require('dotenv').config();
 const express = require('express');
-const firebaseAdmin = require('firebase-admin');
+const cors = require('cors');
+const connectDB = require('./database/database_config'); 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Cấu hình CORS
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Firebase setup
-firebaseAdmin.initializeApp({
-  credential: firebaseAdmin.credential.cert({
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    projectId: process.env.FIREBASE_PROJECT_ID
-  })
-});
+// Kết nối tới MongoDB
+connectDB();
 
 app.use(express.json());
 

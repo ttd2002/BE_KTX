@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { getBuildings } = require('../controllers/roomController');
 
-// Placeholder routes for room management
-router.get('/', (req, res) => {
-  res.send("Room management service is working!");
-});
-
-// You can add more routes here for room creation, deletion, etc.
+router.get('/rooms', getBuildings);
 
 module.exports = router;
