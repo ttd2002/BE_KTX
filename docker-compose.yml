@@ -5,10 +5,6 @@ services:
       - "4000:4000"
     env_file:
       - ./api-gateway/.env
-    environment:
-      - AUTH_SERVICE_URL=http://auth-service:3000/auth
-      - ROOM_SERVICE_URL=http://room-service:5000/room
-      - PAYMENT_SERVICE_URL=http://payment-service:6000/payment
 
   auth-service:
     build: ./auth-service
@@ -30,3 +26,15 @@ services:
       - "6000:6000"
     env_file:
       - ./payment-service/.env
+  student-service:
+    build: ./student-service
+    ports:
+      - "7000:7000"
+    env_file:
+      - ./student-service/.env
+  equipment-service:
+    build: ./equipment-service
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./equipment-service/.env

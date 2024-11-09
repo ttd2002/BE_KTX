@@ -3,7 +3,6 @@ const Student = require('../database/models/Student');
 const Admin = require('../database/models/AdminAccount');
 const authMiddleware = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-
     if (!token) return res.status(401).json({ error: 'Authentication required' });
 
     try {

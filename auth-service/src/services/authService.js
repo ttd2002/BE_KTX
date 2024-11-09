@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const twilio = require('twilio');
 const Student = require('../database/models/Student');
+const Admin = require('../database/models/AdminAccount');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -30,29 +31,33 @@ const register = async (studentId, name, phoneNumber, gender, password, classNam
     return { studentId, name, phoneNumber, gender, className };
 };
 
-const login = async (studentId, password) => {
-    const user = await Student.findOne({ studentId });
+const login = async (username, password) => {
+    let user = await Student.findOne({ studentId: username });
+    let isAdminAccount = false;
+    let role = null;
 
-    if (!user) throw new Error('Invalid credentials');
+    if (!user) {
+        user = await Admin.findOne({ username: username });
+        if (!user || !user.isAdmin) throw new Error('Invalid credentials');
+        isAdminAccount = true;
+        role = user.role;
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error('Invalid credentials');
 
-    const token = jwt.sign({
-        studentId: user.studentId,
-        name: user.name,
-        phoneNumber: user.phoneNumber,
-        gender: user.gender,
-        className: user.className,
-        address: user.address,
-        email: user.email,
-        roomName: user.roomName,
-        isLeader: user.isLeader,
-        equipmentName: user.equipmentName,
-    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const tokenPayload = isAdminAccount
+        ? { adminId: user._id, isAdmin: true, role: role }
+        : { studentId: user.studentId, isAdmin: false };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     return { token };
 };
+
+module.exports = { login };
+
+
 
 const sendOtp = async (phoneNumber) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

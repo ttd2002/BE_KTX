@@ -13,6 +13,7 @@ router.post('/register', registerController);
 router.post('/login', loginController);
 router.post('/send-otp', sendOtpController);
 router.post('/verify-otp', verifyOtpController);
-router.get('/info', authMiddleware, getStudentInfoController);
-
+router.get('/info', authMiddleware, (req, res) => {
+  res.json(req.user);
+});
 module.exports = router;
