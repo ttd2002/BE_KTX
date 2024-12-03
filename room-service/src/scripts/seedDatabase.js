@@ -59,11 +59,23 @@ const buildingData = [
   },
 ];
 
-function generateStudentId() {
-  const yearPrefix = Math.floor(Math.random() * 5) + 20;
-  const randomDigits = Math.floor(10000 + Math.random() * 90000);
-  const lastDigit = Math.random() < 0.5 ? 1 : 2;
-  return `${yearPrefix}${randomDigits}${lastDigit}`;
+async function generateStudentId() {
+  let studentId;
+  let isUnique = false;
+
+  while (!isUnique) {
+    const yearPrefix = Math.floor(Math.random() * 5) + 20;
+    const randomDigits = Math.floor(10000 + Math.random() * 90000);
+    const lastDigit = Math.random() < 0.5 ? 1 : 2;
+    studentId = `${yearPrefix}${randomDigits}${lastDigit}`;
+
+    const existingStudent = await Student.findOne({ studentId });
+    if (!existingStudent) {
+      isUnique = true;
+    }
+  }
+
+  return studentId;
 }
 
 function generateVietnameseEmail(name) {
@@ -74,7 +86,7 @@ function generateVietnameseEmail(name) {
 
 async function seedDatabase() {
   try {
-    await mongoose.connect("mongodb+srv://thanhdai912:dai110912@cluster0.s1gwo.mongodb.net/");
+    await mongoose.connect("");
 
     await Building.deleteMany();
     await Student.deleteMany();
@@ -91,41 +103,48 @@ async function seedDatabase() {
       const targetStudentCount = Math.floor(Math.random() * 4) + 7;
       const gender = room.gender;
 
-      // Lấy danh sách "Giường" theo roomName từ collection Equipment
       const equipmentBeds = await Equipment.find({ location: room.roomNumber, name: 'Giường' });
 
       for (let i = 0; i < targetStudentCount; i++) {
-        const name = faker.person.fullName({ gender: gender === 'female' ? 'female' : 'male' });
-        const phoneNumber = faker.phone.number('09########');
-        const address = faker.location.streetAddress(true) + ', ' + faker.location.city();
-        const email = generateVietnameseEmail(name);
-        const className = `K${17 - (studentCount % 4)}CNPM`;
-        const hashedPassword = await bcrypt.hash('Pass123456.', 10);
+        try {
+          const name = faker.person.fullName({ gender: gender === 'female' ? 'female' : 'male' });
+          const phoneNumber = faker.phone.number('09########');
+          const address = faker.location.streetAddress(true) + ', ' + faker.location.city();
+          const email = generateVietnameseEmail(name);
+          const className = `K${17 - (studentCount % 4)}CNPM`;
+          const hashedPassword = await bcrypt.hash('Pass123456.', 10);
 
-        // Gán "Giường" cho sinh viên nếu còn thiết bị
-        const equipmentName = equipmentBeds[i] ? equipmentBeds[i].key : '';
+          const equipmentName = equipmentBeds[i] ? equipmentBeds[i].key : '';
 
-        students.push({
-          studentId: generateStudentId(),
-          name: name,
-          phoneNumber: phoneNumber,
-          gender: gender,
-          password: hashedPassword,
-          className: className,
-          address: address,
-          email: email,
-          roomName: room.roomNumber,
-          isLeader: i === 0,
-          equipmentName: equipmentName,
-          studentStatus: 'pending'
-        });
+          students.push({
+            studentId: await generateStudentId(),
+            name: name,
+            phoneNumber: phoneNumber,
+            gender: gender,
+            password: hashedPassword,
+            className: className,
+            address: address,
+            email: email,
+            roomName: room.roomNumber,
+            isLeader: i === 0,
+            equipmentName: equipmentName,
+            studentStatus: 'pending',
+          });
 
-        studentCount++;
+          studentCount++;
+        } catch (studentError) {
+          console.error(`Lỗi khi thêm sinh viên: ${studentError.message}`);
+          continue; // Bỏ qua sinh viên này và tiếp tục thêm sinh viên khác
+        }
       }
     }
 
-    await Student.insertMany(students);
-    console.log('Student data seeded!');
+    try {
+      await Student.insertMany(students);
+      console.log('Student data seeded!');
+    } catch (bulkError) {
+      console.error('Error seeding student data:', bulkError);
+    }
 
     const updatedBuildingData = await Promise.all(buildingData.map(async (building) => {
       const updatedFloors = await Promise.all(building.floors.map(async (floor) => {

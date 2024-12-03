@@ -146,5 +146,53 @@ router.get('/getStudentsByStatus', async (req, res) => {
         }
     }
 });
+router.get('/getStudentsInDorm', async (req, res) => {
+    try {
+        const response = await axios.get(`${STUDENT_SERVICE_URL}/getStudentsInDorm`, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+router.put('/approveAll', async (req, res) => {
+    try {
+        const response = await axios.put(`${STUDENT_SERVICE_URL}/approveAll`, req.body, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
 
+router.put('/approve/:studentId', async (req, res) => {
+    try {
+        const response = await axios.put(`${STUDENT_SERVICE_URL}/approve/${req.params.studentId}`, req.body, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
 module.exports = router;

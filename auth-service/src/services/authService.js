@@ -84,4 +84,51 @@ const verifyOtp = async (otp, phoneNumber) => {
     }
 };
 
-module.exports = { register, login, sendOtp, verifyOtp };
+const changePassword = async (studentId, oldPassword, newPassword) => {
+    const user = await Student.findOne({ studentId });
+    console.log("old", oldPassword);
+    console.log("new", newPassword);
+    if (!user) return { message: 'User not found' };
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isMatch) {
+        return { message: 'Old password is incorrect' };
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+    return { message: 'Password updated successfully' };
+};
+const forgotPassword = async (studentId) => {
+    if (!studentId) throw new Error('studentId is required');
+    const student = await Student.findOne({ studentId });
+    if (!student) throw new Error('User not found');
+    await sendOtp(formatPhoneNumber(student.phoneNumber));
+    return {
+        message: 'send otp to ' + student.phoneNumber
+    }
+};
+const formatPhoneNumber = (phoneNumber) => {
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.startsWith('0')) {
+        return '+84' + cleaned.slice(1);
+    }
+    return '+' + cleaned;
+};
+
+
+
+const resetPassword = async (studentId, newPassword) => {
+    const student = await Student.findOne({ studentId });
+    if (!student) throw new Error('User not found');
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    student.password = hashedPassword;
+    await student.save();
+
+    return { message: 'Password reset successfully' };
+};
+module.exports = { register, login, sendOtp, verifyOtp, changePassword, forgotPassword, resetPassword };

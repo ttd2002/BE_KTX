@@ -1,4 +1,4 @@
-const { register, login, sendOtp, verifyOtp } = require('../services/authService');
+const { register, login, sendOtp, verifyOtp, changePassword, forgotPassword, resetPassword } = require('../services/authService');
 const { getStudentInfoFromToken } = require('../services/tokenService');
 const registerController = async (req, res) => {
   const { studentId, name, phoneNumber, gender, password, className } = req.body;
@@ -48,10 +48,43 @@ const getStudentInfoController = (req, res) => {
     res.status(401).json({ error: err.message });
   }
 };
+const changePasswordController = async (req, res) => {
+  try {
+    if (!req.user || !req.user.studentId) {
+      return res.status(403).json({ message: 'Access denied. Students only.' });
+    }
+    const { oldPassword, newPassword } = req.body
+    const message = await changePassword(req.user.studentId, oldPassword, newPassword);
+    res.status(200).json(message);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+};
+const forgotPasswordController = async (req, res) => {
+  try {
+    const studentId = req.body.studentId
+    const message = await forgotPassword(studentId);
+    res.status(200).json(message);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+};
+const resetPasswordController = async (req, res) => {
+  try {
+    const { studentId, newPassword } = req.body
+    const message = await resetPassword(studentId, newPassword);
+    res.status(200).json(message);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+};
 module.exports = {
   registerController,
   loginController,
   sendOtpController,
   verifyOtpController,
-  getStudentInfoController
+  getStudentInfoController,
+  changePasswordController,
+  forgotPasswordController,
+  resetPasswordController
 };

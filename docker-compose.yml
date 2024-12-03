@@ -38,3 +38,21 @@ services:
       - "8000:8000"
     env_file:
       - ./equipment-service/.env
+  registration-service:
+    build: ./registration-service
+    ports:
+      - "9000:9000"
+    env_file:
+      - ./registration-service/.env
+  contract-service:
+    build: ./contract-service
+    ports:
+      - "2000:2000"
+    env_file:
+      - ./contract-service/.env
+  support-service:
+    build: ./support-service
+    ports:
+      - "1000:1000"
+    env_file:
+      - ./support-service/.env

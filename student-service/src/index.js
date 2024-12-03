@@ -6,6 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 7000;
 const cors = require('cors');
 
+
 // Cấu hình CORS
 app.use(cors({
     origin: '*',
