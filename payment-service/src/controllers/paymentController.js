@@ -31,7 +31,10 @@ exports.payPaymentById = async (req, res) => {
 exports.handleVnpayCallback = async (req, res) => {
     try {
         const updatedPayment = await paymentService.handleVnpayReturn(req.query);
-        res.status(200).json(updatedPayment);
+        // res.status(200).json(updatedPayment);
+        console.log("updatedPayment", updatedPayment)
+        res.redirect(updatedPayment);
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -101,6 +104,20 @@ exports.getUtilityPaymentsByRoom = async (req, res) => {
             return res.status(403).json({ message: 'Access denied. Students only.' });
         }
         const data = await paymentService.getUtilityPaymentsByRoom(req.user.roomName);
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.calculateStatistics = async (req, res) => {
+    try {
+        if (!req.user || typeof req.user.isAdmin === 'undefined') {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        if (!req.user.isAdmin) {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        const data = await paymentService.calculateStatistics();
         res.status(200).json(data);
     } catch (error) {
         res.status(500).json({ message: error.message });

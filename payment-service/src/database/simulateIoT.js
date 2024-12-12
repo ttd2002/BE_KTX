@@ -12,8 +12,8 @@ const simulateIoT = async () => {
         // Hàm sinh ngẫu nhiên giá trị tăng của điện và nước cho mỗi phòng
         const getIncrement = () => {
             // Tạo giá trị ngẫu nhiên khác nhau cho từng phòng
-            const electricityIncrement = Math.random() * 0.5; // Tăng từ 0 đến 0.5 kWh
-            const waterIncrement = Math.random() * 0.2; // Tăng từ 0 đến 0.2 m³
+            const electricityIncrement = Math.random() * 7; // Tăng từ 0 đến 0.5 kWh
+            const waterIncrement = Math.random() * 5; // Tăng từ 0 đến 0.2 m³
             return { electricityIncrement, waterIncrement };
         };
 

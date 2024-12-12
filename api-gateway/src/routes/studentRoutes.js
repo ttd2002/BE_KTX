@@ -24,9 +24,9 @@ router.post('/addStudent', async (req, res) => {
 });
 
 // Xóa sinh viên theo ID
-router.delete('/deleteStudent/:id', async (req, res) => {
+router.put('/deleteStudent/:id', async (req, res) => {
     try {
-        const response = await axios.delete(`${STUDENT_SERVICE_URL}/deleteStudent/${req.params.id}`, {
+        const response = await axios.put(`${STUDENT_SERVICE_URL}/deleteStudent/${req.params.id}`, req.body, {
             headers: { Authorization: req.headers.authorization }
         });
         res.status(response.status).json(response.data);
@@ -40,7 +40,22 @@ router.delete('/deleteStudent/:id', async (req, res) => {
         }
     }
 });
-
+router.put('/swapLeader/:studentId', async (req, res) => {
+    try {
+        const response = await axios.put(`${STUDENT_SERVICE_URL}/swapLeader/${req.params.studentId}`, req.body, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
 // Cập nhật sinh viên theo ID (với params)
 router.put('/updateStudent/:id', async (req, res) => {
     try {
@@ -182,6 +197,54 @@ router.put('/approveAll', async (req, res) => {
 router.put('/approve/:studentId', async (req, res) => {
     try {
         const response = await axios.put(`${STUDENT_SERVICE_URL}/approve/${req.params.studentId}`, req.body, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+router.put('/rejectStudent/:studentId', async (req, res) => {
+    try {
+        const response = await axios.put(`${STUDENT_SERVICE_URL}/rejectStudent/${req.params.studentId}`, req.body, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+router.get('/getStudentHistoriesById/:studentId', async (req, res) => {
+    try {
+        const response = await axios.get(`${STUDENT_SERVICE_URL}/getStudentHistoriesById/${req.params.studentId}`, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+router.get('/getApplicationsByStudentId', async (req, res) => {
+    try {
+        const response = await axios.get(`${STUDENT_SERVICE_URL}/getApplicationsByStudentId`, {
             headers: { Authorization: req.headers.authorization }
         });
         res.status(response.status).json(response.data);

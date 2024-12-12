@@ -13,19 +13,29 @@ exports.addStudent = async (req, res) => {
     }
 };
 
+exports.swapLeader = async (req, res) => {
+    try {
+        if (!req.user || !req.user.studentId) {
+            return res.status(403).json({ message: 'Access denied. Students only.' });
+        }
+        const swap = await studentService.swapLeader(req.user.studentId, req.params.studentId);
+        res.status(200).json(swap);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};
 exports.deleteStudent = async (req, res) => {
     try {
         if (!req.user.isAdmin) {
             return res.status(403).json({ error: 'Forbidden: Only admins can delete students' });
         }
 
-        await studentService.deleteStudent(req.params.id);
-        res.status(200).json({ message: 'Student deleted successfully' });
+        const deleted = await studentService.deleteStudent(req.params.id, req.body.description);
+        res.status(200).json(deleted);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 };
-
 exports.updateStudent = async (req, res) => {
     try {
         let studentId;
@@ -141,4 +151,49 @@ exports.revertApprovedStudents = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+exports.rejectStudent = async (req, res) => {
+    try {
+        if (!req.user || typeof req.user.isAdmin === 'undefined') {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        if (!req.user.isAdmin) {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        const studentId = req.params.studentId;
+        const { reason, description } = req.body
+        const reject = await studentService.rejectStudent(studentId, reason, description);
+        res.status(200).json(reject);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+exports.getStudentHistoriesById = async (req, res) => {
+    try {
+        if (!req.user || typeof req.user.isAdmin === 'undefined') {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        if (!req.user.isAdmin) {
+            return res.status(403).json({ error: 'Only admin can use this function' });
+        }
+        const studentId = req.params.studentId;
+        const histories = await studentService.getStudentHistoriesById(studentId);
+        res.status(200).json(histories);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getApplicationsByStudentId = async (req, res) => {
+    try {
+        if (!req.user || !req.user.studentId) {
+            return res.status(403).json({ message: 'Access denied. Students only.' });
+        }
+        const applications = await studentService.getApplicationsByStudentId(req.user.studentId);
+        res.status(200).json(applications);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 

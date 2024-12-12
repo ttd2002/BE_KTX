@@ -1,11 +1,21 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const mongoose = require('mongoose');
-const Building = require('../database/models/Room'); 
+const Building = require('../database/models/Room');
 
+const connectDB = async () => {
+    try {
+        await mongoose.connect('mongodb+srv://thanhdai912:dai110912@cluster0.s1gwo.mongodb.net/');
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('Could not connect to MongoDB:', error);
+        process.exit(1);
+    }
+};
+connectDB();
 const calculateRoomCost = async (roomId) => {
-    const prices = await getElectricityPrices(); 
-    const { building, floor, room } = await findRoom(roomId); 
+    const prices = await getElectricityPrices();
+    const { building, floor, room } = await findRoom(roomId);
 
     const electricityCost = calculateElectricityCost(room.newElectricity, room.oldElectricity, prices) * 1000;
 
@@ -13,10 +23,10 @@ const calculateRoomCost = async (roomId) => {
 
     const totalCost = electricityCost + waterCost;
 
-    // console.log(`Room: ${room.roomNumber}`);
-    // console.log(`Electricity Cost: ${electricityCost.toFixed(2)} VND`);
-    // console.log(`Water Cost: ${waterCost.toFixed(2)} VND`);
-    // console.log(`Total Cost: ${totalCost.toFixed(2)} VND`);
+    console.log(`Room: ${room.roomNumber}`);
+    console.log(`Electricity Cost: ${electricityCost.toFixed(2)} VND`);
+    console.log(`Water Cost: ${waterCost.toFixed(2)} VND`);
+    console.log(`Total Cost: ${totalCost.toFixed(2)} VND`);
 };
 
 const findRoom = async (roomName) => {
@@ -62,8 +72,8 @@ const getElectricityPrices = async () => {
         priceTableRows.each((index, row) => {
             const cells = $(row).find('td');
             if (cells.length > 0) {
-                const level = $(cells[0]).text().trim(); 
-                const price = $(cells[2]).text().trim(); 
+                const level = $(cells[0]).text().trim();
+                const price = $(cells[2]).text().trim();
 
                 if (level && price) {
                     switch (true) {
@@ -89,6 +99,8 @@ const getElectricityPrices = async () => {
                 }
             }
         });
+        console.log("prices", prices)
+
         return prices;
     } catch (error) {
         console.error('Error fetching electricity prices:', error);
@@ -98,13 +110,16 @@ const getElectricityPrices = async () => {
 
 
 const calculateWaterCost = (waterUsage) => {
-    const waterPrice = 14400; 
+    const waterPrice = 14400;
     return waterUsage * waterPrice;
 };
 
 const calculateElectricityCost = (newElectricity, oldElectricity, prices) => {
     let totalCost = 0;
     const usage = newElectricity - oldElectricity;
+    console.log('newElectricity', newElectricity);
+    console.log('oldElectricity', oldElectricity);
+    console.log('usage', usage);
     if (usage > 0) {
         if (usage <= 50) {
             totalCost += usage * prices['Bậc 1'];
@@ -120,7 +135,7 @@ const calculateElectricityCost = (newElectricity, oldElectricity, prices) => {
             totalCost += 50 * prices['Bậc 1'] + 50 * prices['Bậc 2'] + 100 * prices['Bậc 3'] + 100 * prices['Bậc 4'] + 100 * prices['Bậc 5'] + (usage - 400) * prices['Bậc 6'];
         }
     }
-
+    console.log('totalCost', totalCost);
     return totalCost;
 };
-calculateRoomCost('I12.01');
+calculateRoomCost('I6.02');

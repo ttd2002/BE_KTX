@@ -50,3 +50,15 @@ exports.getSupports = async (req, res) => {
         res.status(400).json({ error: error.message });
     }
 };
+exports.deleteSupport = async (req, res) => {
+    try {
+        if (!req.user || !req.user.studentId) {
+            return res.status(403).json({ message: 'Access denied. Students only.' });
+        }
+
+        await supportServices.deleteSupport(req.params.id, req.user.studentId);
+        res.status(200).json({ message: 'Support deleted successfully' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};

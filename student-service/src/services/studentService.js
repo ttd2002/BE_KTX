@@ -3,6 +3,8 @@ const Student = require('../database/models/Student');
 const Equipment = require('../database/models/Equipment');
 const Payment = require('../database/models/Payment');
 const Registration = require('../database/models/Registration');
+const History = require('../database/models/History');
+const RejectStudent = require('../database/models/RejectStudent');
 const bcrypt = require('bcryptjs');
 exports.addStudent = async (data) => {
     try {
@@ -49,7 +51,14 @@ exports.addStudent = async (data) => {
         };
 
         registration.applications.push(application);
-
+        const history = new History({
+            from: 'N/A',
+            to: roomName,
+            description: 'Vào ký túc xá',
+            name: name,
+            id: studentId
+        });
+        await history.save();
         await registration.save();
         await building.save();
         await newStudent.save();
@@ -95,13 +104,65 @@ const calculateAmount = (monthlyRent, startDate) => {
 
     return Math.round(amount);
 }
+exports.swapLeader = async (currentLeaderId, newLeaderId) => {
+    const newLeader = await Student.findOne({ studentId: newLeaderId });
+    const currentLeader = await Student.findOne({ studentId: currentLeaderId });
+    if (!newLeader) {
+        throw new Error(`Student ${newLeaderId} not found`);
+    }
+    if (!currentLeader.isLeader) {
+        throw new Error('You not is leader');
+    }
+    if (currentLeader.roomName !== newLeader.roomName) {
+        throw new Error('Students must belong to the same room to swap leader');
+    }
+    if (currentLeaderId === newLeaderId) {
+        throw new Error('Cannot swap yourself');
+    }
+    currentLeader.isLeader = false;
+    newLeader.isLeader = true;
 
-exports.deleteStudent = async (studentId) => {
+    await currentLeader.save();
+    await newLeader.save();
+    return { message: `Swap student ${newLeaderId} to be the leader successfully.` };
+};
+exports.deleteStudent = async (studentId, description) => {
     const student = await Student.findOne({ studentId });
     if (!student) {
         throw new Error('Student not found');
     }
-    return await Student.findOneAndDelete({ studentId: studentId });
+    if (student.isLeader) {
+        const otherStudents = await Student.find({
+            roomName: student.roomName,
+            studentId: { $ne: studentId }
+        });
+
+        if (otherStudents.length > 0) {
+            const newLeader = otherStudents[0];
+            newLeader.isLeader = true;
+            await newLeader.save();
+        }
+    }
+
+    await updateRegistration(description, studentId, student.roomName, student.equipmentName, "deleted");
+    const previousRoomName = student.roomName;
+
+    student.isLeader = false;
+    student.roomName = "";
+    student.equipmentName = "";
+    student.studentStatus = "unknown";
+    await student.save();
+
+    const history = new History({
+        from: previousRoomName,
+        to: 'N/A',
+        description: 'Rời khỏi ký túc xá',
+        name: student.name,
+        id: student.studentId
+    });
+    await history.save();
+
+    return { message: `Student ${studentId} deleted successfully.` };
 };
 
 
@@ -143,7 +204,6 @@ exports.updateStudent = async (studentId, isAdmin, updateData) => {
                 const [currentAvailable, totalCapacity] = currentRoom.available.split('/').map(Number);
                 currentRoom.available = `${currentAvailable + 1}/${totalCapacity}`;
                 currentRoom.availableForRegistration = currentAvailable + 1 < totalCapacity;
-
                 await currentBuilding.save();
             }
 
@@ -172,6 +232,8 @@ exports.updateStudent = async (studentId, isAdmin, updateData) => {
                 if (!unassignedBed) {
                     throw new Error('No available bed found in this room');
                 }
+                const previousRoomName = student.roomName;
+                const description = student.roomName == "" ? "Vào ký túc xá" : "Chuyển phòng";
                 student.equipmentName = unassignedBed.key;
                 student.roomName = newRoom.roomNumber;
 
@@ -179,6 +241,15 @@ exports.updateStudent = async (studentId, isAdmin, updateData) => {
                 student.isLeader = studentsInRoom.length === 0;
 
                 await newBuilding.save();
+                await updateRegistration(updateData.description, studentId, updateData.roomName, unassignedBed.key, "approved")
+                const history = new History({
+                    from: previousRoomName,
+                    to: updateData.roomName,
+                    description: description,
+                    name: student.name,
+                    id: student.studentId
+                });
+                await history.save();
             } else {
                 student.roomName = "";
                 student.isLeader = false;
@@ -196,7 +267,31 @@ exports.updateStudent = async (studentId, isAdmin, updateData) => {
     }
 };
 
+const updateRegistration = async (description, studentId, roomName, equipmentName, status) => {
+    const registrations = await Registration.find({
+        description: { $regex: `^${description}`, $options: "i" }
+    });
 
+    if (!registrations || registrations.length === 0) {
+        throw new Error('No registrations found');
+    }
+    for (const registration of registrations) {
+        let hasUpdated = false;
+
+        registration.applications.forEach((application) => {
+            if (application.studentId === studentId) {
+                application.status = status;
+                application.roomName = roomName;
+                application.equipmentName = equipmentName
+                hasUpdated = true;
+            }
+        });
+
+        if (hasUpdated) {
+            await registration.save();
+        }
+    }
+}
 
 
 const findRoom = async (roomName) => {
@@ -252,7 +347,7 @@ exports.selectRoom = async (studentId, roomIdentifier, description) => {
     student.roomName = roomIdentifier;
     student.equipmentName = unassignedBed.key;
     student.studentStatus = "pending";
-    student.description = description;
+    // student.description = description;
     const studentsInRoom = await Student.find({ roomName: roomIdentifier });
     student.isLeader = studentsInRoom.length === 0;
 
@@ -296,14 +391,16 @@ exports.getStudentsInDorm = async () => {
 
     const studentIds = applications.map(app => app.studentId);
 
-    const students = await Student.find({ studentId: { $in: studentIds } });
+    const students = await Student.find({
+        studentId: { $in: studentIds },
+        studentStatus: { $in: ['pending', 'approved'] }
+    });
 
     const result = students.map(student => ({
         studentId: student.studentId,
         name: student.name,
         phoneNumber: student.phoneNumber,
         gender: student.gender,
-        password: student.password,
         className: student.className,
         address: student.address,
         email: student.email,
@@ -317,9 +414,11 @@ exports.getStudentsInDorm = async () => {
     return {
         description: baseDescription,
         totalApplications: applications.length,
+        totalStudents: students.length,
         result
     };
 };
+
 
 exports.getStudentsByRoom = async (roomName) => {
     const students = await Student.find({ roomName });
@@ -398,13 +497,21 @@ exports.approveAllPendingStudents = async () => {
         application.status = 'approved';
 
         const { building, floor, room } = await findRoom(student.roomName);
+
         await createPaymentForStudent(baseDescription, room.price, student.studentId);
 
         const registration = registrations.find(reg => reg.applications.some(app => app.studentId === student.studentId));
         if (registration) {
             await registration.save();
         }
-
+        const history = new History({
+            from: "N/A",
+            to: student.roomName,
+            description: "Vào ký túc xá",
+            name: student.name,
+            id: student.studentId
+        });
+        await history.save();
         approvedCount++;
     }
 
@@ -439,7 +546,15 @@ exports.approveStudentById = async (studentId) => {
     await createPaymentForStudent(description, room.price, student.studentId);
 
     application.status = 'approved';
+    const history = new History({
+        from: "N/A",
+        to: student.roomName,
+        description: "Vào ký túc xá",
+        name: student.name,
+        id: studentId
+    });
     await registration.save();
+    await history.save();
 };
 
 exports.revertApprovedStudents = async () => {
@@ -495,6 +610,88 @@ exports.revertApprovedStudents = async () => {
         revertedCount: approvedApplications.length
     };
 };
+exports.rejectStudent = async (studentId, reason, description) => {
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+        throw new Error('Student not found');
+    }
+    if (student.studentStatus != "pending") {
+        throw new Error('This student is not pending');
+    }
 
+    if (!reason) {
+        throw new Error('Reason is required');
+    }
+    const rejectStudent = new RejectStudent({
+        studentId,
+        studentName: student.name,
+        reason,
+        description,
+    });
+    if (student.isLeader) {
+        const otherStudents = await Student.find({
+            roomName: student.roomName,
+            studentId: { $ne: studentId }
+        });
 
+        if (otherStudents.length > 0) {
+            const newLeader = otherStudents[0];
+            newLeader.isLeader = true;
+            await newLeader.save();
+        }
+    }
+    await updateRegistration(description, studentId, student.roomName, student.equipmentName, "rejected")
+    await rejectStudent.save();
+
+    const { building, floor, room } = await findRoom(student.roomName);
+    const [currentAvailable, totalCapacity] = room.available.split('/').map(Number);
+    room.available = `${currentAvailable + 1}/${totalCapacity}`;
+    room.availableForRegistration = currentAvailable + 1 < totalCapacity;
+    await room.save();
+
+    student.roomName = "";
+    student.equipmentName = "";
+    student.studentStatus = "unknown";
+    await student.save();
+    return { message: `reject student ${studentId} success` }
+}
+exports.getStudentHistoriesById = async (studentId) => {
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+        throw new Error('Student not found');
+    }
+    const histories = History.find({ id: studentId })
+    return histories;
+}
+exports.getApplicationsByStudentId = async (studentId) => {
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+        throw new Error('Student not found');
+    }
+
+    const registrations = await Registration.find({
+        'applications.studentId': studentId
+    });
+
+    if (!registrations.length) {
+        throw new Error('No applications found for the given studentId');
+    }
+
+    const rejectInfo = await RejectStudent.findOne({ studentId });
+
+    const applications = registrations.flatMap((registration) => {
+        return registration.applications
+            .filter(app => app.studentId === studentId)
+            .map(app => ({
+                description: registration.description || '',
+                studentId: app.studentId,
+                studentName: student.name,
+                roomName: app.roomName,
+                status: app.status,
+                reason: rejectInfo ? rejectInfo.reason : ''
+            }));
+    });
+
+    return applications;
+};
 

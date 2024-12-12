@@ -91,4 +91,25 @@ router.get('/getSupportsByRoom', async (req, res) => {
     }
 
 });
+router.delete('/deleteSupport/:id', async (req, res) => {
+    try {
+        const response = await axios.delete(`${SUPPORT_SERVICE_URL}/deleteSupport/${req.params.id}`, {
+            headers: { Authorization: req.headers.authorization }
+        });
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        if (error.response) {
+            console.error("Error from service:", error.response.data);
+            console.error("Status Code:", error.response.status);
+            res.status(error.response.status).json(error.response.data);
+        } else if (error.request) {
+            console.error("No response received:", error.request);
+            res.status(500).json({ error: "No response from service" });
+        } else {
+            console.error("Request error:", error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+});
 module.exports = router;

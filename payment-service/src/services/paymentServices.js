@@ -2,6 +2,9 @@ const Payment = require('../database/models/Payment');
 const Building = require('../database/models/Room');
 const Student = require('../database/models/Student');
 const Contract = require('../database/models/Contract');
+const Registration = require('../database/models/Registration');
+const { editAndUploadPDF } = require('./drawPDF');
+
 
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -9,7 +12,15 @@ const moment = require('moment');
 require('dotenv').config();
 const crypto = require('crypto');
 const querystring = require('qs');
+const fs = require('fs');
+const { PDFDocument } = require('pdf-lib');
+const cloudinary = require('cloudinary').v2;
 
+cloudinary.config({
+    cloud_name: 'dwu4fcnse',
+    api_key: '949445116215179',
+    api_secret: 'CoxZM60DA3dxEyXCGZ6h26tF0ps'
+});
 
 const vnpayConfig = {
     vnp_TmnCode: 'SSVEUKQW',
@@ -108,7 +119,6 @@ exports.getRoomPaymentDetails = async () => {
 exports.getUtilityPayments = async () => {
     const currentMonth = new Date().getMonth() + 1; // Lấy tháng hiện tại
     const description = `Tiền điện, nước tháng ${currentMonth}`;
-    console.log('description', description)
     // const buildings = await Building.find(); // Lấy tất cả các tòa nhà
 
     // const result = []; // Kết quả cuối cùng
@@ -150,7 +160,6 @@ exports.getUtilityPayments = async () => {
     //     }
     // }
     const result = Payment.find({ description })
-    console.log('result', result);
     return result;
 
 };
@@ -195,14 +204,27 @@ exports.createPaymentUrl = async (paymentId, clientIp, isLeader) => {
     let signed = hmac.update(new Buffer.from(signData, 'utf-8')).digest("hex");
     vnpParams['vnp_SecureHash'] = signed;
 
-    console.log("Request Parameters:", vnpParams);
     let payment_url = vnpayConfig.vnp_Url;
     payment_url += '?' + querystring.stringify(vnpParams, { encode: false });
     console.log("vnp_Url:", vnpayConfig.vnp_Url);
 
     return payment_url;
 };
-
+// async function test() {
+//     const student = await Student.findOne({ studentId: '20077931' })
+//     const payment = await Payment.findById('67458f9b2510f8f6395b70a7')
+//     if (!student) {
+//         console.log('notfound');
+//     }
+//     if (!payment) {
+//         console.log('notfound');
+//     }
+//     console.log("amout" + payment.amount);
+//     const { startDate, endDate } = getDatesFromDescription(payment.description);
+//     const url = await editAndUploadPDF(student, payment, startDate, endDate);
+//     console.log("url " + url);
+// }
+// test();
 // Xử lý callback từ VNPay
 exports.handleVnpayReturn = async (query) => {
     const vnpParams = query; // Lấy tham số từ query
@@ -227,6 +249,10 @@ exports.handleVnpayReturn = async (query) => {
             if (!payment) {
                 throw new Error('Payment not found');
             }
+            const student = await Student.findOne({studentId: payment.studentId});
+            if (!student) {
+                throw new Error('Student not found');
+            }
             payment.paymentStatus = 'paid';
             payment.paymentMethod = 'vnpay';
             payment.vnp_PaymentDate = new Date();
@@ -236,7 +262,9 @@ exports.handleVnpayReturn = async (query) => {
 
             // create contract
             if (payment.type === 'roomFee') {
+
                 const { startDate, endDate } = getDatesFromDescription(payment.description);
+                const url = await editAndUploadPDF(student, payment, startDate, endDate);
                 const contractNumber = await generateContractNumber();
 
                 const newContract = new Contract({
@@ -244,13 +272,14 @@ exports.handleVnpayReturn = async (query) => {
                     startDate,
                     endDate,
                     status: 'active',
-                    attachment: 'https://vgu.edu.vn/documents/48694/2370092/20160616_hop_dong_ktx.pdf/6521a7a5-17eb-46d2-870f-3e33259405ee',
+                    attachment: url,
                     studentId: payment.studentId,
                 });
 
                 await newContract.save();
             }
-            return { message: 'payment success' };
+            // return "http://localhost:5173/payment";
+            return "https://www.ktxiuh.me/payment";
         }
     } else {
         return { message: 'transaction failed' };
@@ -399,7 +428,14 @@ exports.createUtilityPaymentForRoom = async (roomNumber, dueDate) => {
 
 
 const calculateRoomCost = async (roomId) => {
-    const prices = await getElectricityPrices();
+    const prices = {
+        'Bậc 1': 1.858,
+        'Bậc 2': 1.919,
+        'Bậc 3': 2.227,
+        'Bậc 4': 2.805,
+        'Bậc 5': 3.136,
+        'Bậc 6': 3.238
+    }
     const { building, floor, room } = await findRoom(roomId);
 
     const electricityCost = calculateElectricityCost(room.newElectricity, room.oldElectricity, prices) * 1000;
@@ -521,4 +557,108 @@ const calculateElectricityCost = (newElectricity, oldElectricity, prices) => {
 
     return totalCost;
 };
+exports.calculateStatistics = async () => {
+    const registrations = await Registration.aggregate([
+        {
+            $project: {
+                description: 1,
+                applications: 1,
+            },
+        },
+    ]);
 
+    // Tạo mảng để chứa kết quả
+    const result = [];
+
+    // Duyệt qua từng description trong registrations
+    for (const reg of registrations) {
+        const { description, applications } = reg;
+
+        // Step 2: Tính tổng doanh thu (roomFee) theo description
+        const roomFeeRevenue = await Payment.aggregate([
+            {
+                $match: {
+                    type: "roomFee",
+                    paymentStatus: "paid",
+                    description: `Tiền phòng ${description.toLowerCase()}`,
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$amount" },
+                },
+            },
+        ]);
+
+        const totalRevenue = roomFeeRevenue[0]?.totalRevenue || 0;
+
+        // Step 3: Tính tổng số sinh viên (approved applications)
+        // console.log("applications", applications);
+        // console.log(applications.map((app) => app.status));
+        const totalStudents = applications.filter(
+            (app) => app.status === "approved"
+        ).length;
+
+        // Step 4: Tính tỷ lệ phòng có người ở (roomOccupancyRate)
+        const rooms = applications
+            .filter((app) => app.status === "approved")
+            .map((app) => app.roomName);
+
+
+        const roomDetails = await Building.aggregate([
+            {
+                $unwind: "$floors",
+            },
+            {
+                $unwind: "$floors.rooms",
+            },
+            {
+                $match: {
+                    "floors.rooms.roomNumber": { $in: rooms },
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRooms: { $sum: 1 },
+                },
+            },
+        ]);
+        const uniqueRooms = [...new Set(rooms)];
+
+        const totalRooms = roomDetails[0]?.totalRooms || 1; // Tránh chia cho 0
+        const roomOccupancyRate = ((uniqueRooms.length / totalRooms) * 100).toFixed(2) + "%";
+
+
+        // Step 5: Tính tổng tiền điện nước (utilityFee) theo description
+        const utilityFeeRevenue = await Payment.aggregate([
+            {
+                $match: {
+                    type: "utilityFee",
+                    // paymentStatus: "paid",
+                    // description: `Tiền phòng ${description.toLowerCase()}`,
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$amount" },
+                },
+            },
+        ]);
+
+        const totalUtilityFee = utilityFeeRevenue[0]?.totalRevenue || 0;
+
+        // Step 6: Ghép kết quả
+        result.push({
+            _id: description,
+            totalRevenue,
+            totalStudents,
+            roomOccupancyRate,
+            totalUtilityFee,
+        });
+    }
+
+    return result;
+}

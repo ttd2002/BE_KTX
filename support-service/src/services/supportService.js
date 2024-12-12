@@ -1,3 +1,4 @@
+const Student = require('../database/models/Student');
 const Support = require('../database/models/Support');
 
 exports.addSupport = async (user, data) => {
@@ -84,6 +85,20 @@ exports.getSupports = async () => {
 };
 
 exports.getSupportsByRoom = async (roomAddress) => {
-    const suports = Support.find({roomAddress});
+    const suports = Support.find({ roomAddress });
     return suports
+};
+exports.deleteSupport = async (id, studentId) => {
+    const support = await Support.findById(id);
+    if (!support) {
+        throw new Error('Support not found');
+    }
+    const student = await Student.findOne({ studentId })
+    if (!student) {
+        throw new Error('Student not found');
+    }
+    if (support.roomAddress != student.roomName) {
+        throw new Error('This support form not belong your room');
+    }
+    return await Support.findByIdAndDelete(id);
 };

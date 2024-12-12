@@ -11,18 +11,16 @@ const applicationSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    equipmentName: {
+        type: String,
+        required: true,
+        trim: true
+    },
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected'],
+        enum: ['pending', 'approved', 'rejected', 'deleted'],
         required: true
     },
-    rejectionReason: {
-        type: String,
-        trim: true,
-        required: function () {
-            return this.status === 'rejected';
-        }
-    }
 });
 
 const registrationSchema = new mongoose.Schema({
